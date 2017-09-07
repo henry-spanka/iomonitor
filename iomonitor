@@ -1,0 +1,152 @@
+#!/usr/bin/python
+
+import argparse
+from subprocess import Popen, PIPE, STDOUT
+import re
+from terminaltables import AsciiTable
+import sys
+import time
+import os
+import qmp
+import time
+from hurry.filesize import size, alternative
+from colorclass import Color
+
+def getVMList():
+    p = Popen('/usr/sbin/qm list', shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+    output = p.stdout.read()
+
+    vmList = {}
+
+    for line in output.splitlines():
+        match = re.match(r'^\s+(\d+)\s+\S+\s+(stopped|running)\s+', line, re.I)
+        if match:
+            id = match.group(1)
+            state = match.group(2)
+            vmList[id] = VirtualMachine(id, state)
+
+    return vmList
+
+def closeMonitors(vmList):
+    for vm in vmList.values():
+        if vm.monitor:
+            vm.disconnect()
+
+def main():
+    # Instantiate the parser
+    parser = argparse.ArgumentParser(description='Qemu IO Monitor')
+    # Interval
+    parser.add_argument('--interval', type=int, const=5, nargs='?', default=5,
+                        help='Interval to refresh the screen and values')
+
+    args = parser.parse_args()
+
+    vmList = getVMList()
+
+    for vm in vmList.values():
+        if vm.running():
+            vm.connect()
+
+    try:
+        while True:
+            table_data = [
+                ['ID', 'rB/s', 'wB/s', 'rIOPS/s', 'wIOPS/s', 'Total Read', 'Total Written']
+            ]
+
+            for vm in vmList.values():
+                if vm.running():
+                    vm.parseStats()
+                    table_data.append(vm.getStatsTable())
+
+            table_instance = AsciiTable(table_data, 'Qemu IO Monitor')
+            _ = os.system('clear')
+            print(table_instance.table)
+
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        closeMonitors(vmList)
+        sys.exit(0)
+
+
+class VirtualMachine:
+    def __init__(self, id, state):
+        self.id = id
+        self.state = state
+        self.monitor = False
+        self.read_bytes = 0
+        self.write_bytes = 0
+        self.read_iops = 0
+        self.write_iops = 0
+        self.read_bytes_sec = 0
+        self.write_bytes_sec = 0
+        self.read_iops_sec = 0
+        self.write_iops_sec = 0
+        self.updatedAt = time.time()
+
+    def connect(self):
+        self.monitor = qmp.QEMUMonitorProtocol(self.getQmpMonitorPath())
+        self.monitor.connect()
+
+    def query(self):
+        return self.monitor.cmd('query-blockstats')
+
+    def parseStats(self):
+        stats = self.query()
+        seconds = time.time()
+
+        tmp_read_bytes = 0
+        tmp_write_bytes = 0
+        tmp_read_iops = 0
+        tmp_write_iops = 0
+
+        for device in stats['return']:
+            tmp_read_bytes += device['stats']['rd_bytes']
+            tmp_write_bytes += device['stats']['wr_bytes']
+            tmp_read_iops += device['stats']['rd_operations']
+            tmp_write_iops += device['stats']['wr_operations']
+
+        self.read_bytes_sec = (tmp_read_bytes - self.read_bytes) / (seconds - self.updatedAt)
+        self.write_bytes_sec = (tmp_write_bytes - self.write_bytes) / (seconds - self.updatedAt)
+        self.read_iops_sec = (tmp_read_iops - self.read_iops) / (seconds - self.updatedAt)
+        self.write_iops_sec = (tmp_write_iops - self.write_iops) / (seconds - self.updatedAt)
+
+        self.read_bytes = tmp_read_bytes
+        self.write_bytes = tmp_write_bytes
+        self.read_iops = tmp_read_iops
+        self.write_iops = tmp_write_iops
+        self.updatedAt = seconds
+
+    def colorizeBytes(self, value, threshold):
+        if value >= threshold:
+            return Color("{autored}%s{/autored}" % size(value, system=alternative))
+
+        return size(value, system=alternative)
+
+    def colorizeIOPS(self, value, threshold):
+        if value >= threshold:
+            return Color("{autored}%d{/autored}" % value)
+
+        return value
+
+    def getStatsTable(self):
+        return [
+            self.id,
+            self.colorizeBytes(self.read_bytes_sec, 20*1024*1024*1024),
+            self.colorizeBytes(self.write_bytes_sec, 20*1024*1024*1024),
+            self.colorizeIOPS(self.read_iops_sec, 35),
+            self.colorizeIOPS(self.write_iops_sec, 35),
+            size(self.read_bytes, system=alternative),
+            size(self.write_bytes, system=alternative)
+        ]
+
+    def disconnect(self):
+        return self.monitor.close()
+
+    def getQmpMonitorPath(self):
+        return "/var/run/qemu-server/%d.qmp" % int(self.id)
+
+    def running(self):
+        return self.state == 'running'
+
+if __name__ == '__main__':
+    main()
