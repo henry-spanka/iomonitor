@@ -11,9 +11,7 @@
 
 This program allows system administrators to identify Virtual Machines that do much IO on the underlying storage.
 
-## Why?
-
-Disks in our Proxmox Cluster were running at 100% because IOPS were maxed out and Proxmox does not allow os to see IOPS per VM. With this program we were able to easily identify the abusing VMs and fix the storage problem.
+Why? The storage in our Proxmox Cluster was slowing down / IOPS were maxed out and Proxmox does not allowed us to see IOPS per VM. With this program we were able to easily identify the abusing VMs and address the storage problems.
 
 ## Setup
 
@@ -34,9 +32,9 @@ iomonitor --interval=$SECONDS
 
 ## Limitations
 
-IOmonitor was tested on Proxmox VE 7 however it may work with lower versions.
+This version of IOmonitor was tested on Proxmox VE 7 however it may work with lower versions.
 
-Currently there are two known limitations.
+Currently known limitations.
 
 1.  It's not possible to invoke any tasks that require
 the QMP Monitor like:
