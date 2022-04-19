@@ -1,17 +1,16 @@
 #### Table of Contents
 
 1. [Description](#description)
-2. [Why was this program created?](#Why?)
-3. [Setup](#setup)
-4. [Usage - Configuration options and additional functionality](#usage)
-5. [Limitations](#limitations)
-6. [Development](#development)
+2. [Setup](#setup)
+3. [Usage - Configuration options and additional functionality](#usage)
+4. [Limitations](#limitations)
+5. [Development](#development)
 
 ## Description
 
 This program allows system administrators to identify Virtual Machines that do much IO on the underlying storage.
 
-Why? The storage in our Proxmox Cluster was slowing down / IOPS were maxed out and Proxmox does not allowed us to see IOPS per VM. With this program we were able to easily identify the abusing VMs and address the storage problems.
+Why? The storage in our Proxmox Cluster was slowing down / IOPS were maxed out and Proxmox does not allow to see IOPS per VM. With this program we were able to easily identify the abusing VMs and address the storage problems.
 
 ## Setup
 
@@ -36,12 +35,11 @@ This version of IOmonitor was tested on Proxmox VE 7 however it may work with lo
 
 Currently known limitations.
 
-1.  It's not possible to invoke any tasks that require
-the QMP Monitor like:
+1.  It's not possible to invoke any tasks that require the QMP Monitor like:
     -   Shutting down a VM
     -   Accessing the VNC Console
     -   Backup
-2.  While IOmonitor is running IO graphs will not be rendered in Proxmox (Read/Write)
+2.  While IOmonitor is running, IO graphs will not be rendered in Proxmox (Read/Write)
 
 # Development
 
