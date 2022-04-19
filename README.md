@@ -19,9 +19,9 @@ Disks in our Proxmox Cluster were running at 100% because IOPS were maxed out an
 
 1.  Clone the Repository
 2.  ```apt install python3-pip python3-terminaltables python3-colorclass python3-hurry.filesize```
-    (alternatively run ```pip3 install terminaltables hurry.filesize colorclass```
-4.  ``pip3 install qmp``
-5.  ``install -m 755 ./iomonitor /usr/local/bin/```
+3.  Alternatively you can run ```pip3 install terminaltables hurry.filesize colorclass```
+4.  ```pip3 install qmp```
+5.  ```install -m 755 ./iomonitor /usr/local/bin/```
 
 ## Usage
 
