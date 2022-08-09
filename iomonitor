@@ -1,11 +1,13 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # IO Monitor for Virtual machines
 #
 # Copyright (C) 2017 Henry Spanka
+# Updated in 2022 for Proxmox 7 and python3 by Kai Mosebach / FreshX GmbH
 #
 # Authors:
 #  Henry Spanka <henry@myvirtualserver.de>
+#  Kai Mosebach <kai.mosebach@freshx.de>
 #
 # This work is licensed under the terms of the GNU GPL, version 2.  See
 # the COPYING file in the root directory.
@@ -29,13 +31,14 @@ def getVMList():
 
     vmList = {}
 
-    for line in output.splitlines():
-        match = re.match(r'^\s+(\d+)\s+\S+\s+(stopped|running)\s+', line, re.I)
+    for bline in output.splitlines():
+        line = bline.decode()
+        match = re.match(r'^\s+(\d+)\s+(\S+)+\s+(stopped|running)\s+', line, re.I)
         if match:
             id = match.group(1)
-            state = match.group(2)
-            vmList[id] = VirtualMachine(id, state)
-
+            name = match.group(2)
+            state = match.group(3)
+            vmList[id] = VirtualMachine(id, state, name)
     return vmList
 
 def closeMonitors(vmList):
@@ -61,7 +64,7 @@ def main():
     try:
         while True:
             table_data = [
-                ['ID', 'rB/s', 'wB/s', 'rIOPS/s', 'wIOPS/s', 'Total Read', 'Total Written']
+                ['ID', 'Name', 'rB/s', 'wB/s', 'rIOPS/s', 'wIOPS/s', 'Total Read', 'Total Written']
             ]
 
             for vm in vmList.values():
@@ -80,9 +83,10 @@ def main():
 
 
 class VirtualMachine:
-    def __init__(self, id, state):
+    def __init__(self, id, state, name):
         self.id = id
         self.state = state
+        self.name = name
         self.monitor = False
         self.read_bytes = 0
         self.write_bytes = 0
@@ -116,10 +120,10 @@ class VirtualMachine:
             tmp_read_iops += device['stats']['rd_operations']
             tmp_write_iops += device['stats']['wr_operations']
 
-        self.read_bytes_sec = (tmp_read_bytes - self.read_bytes) / (seconds - self.updatedAt)
-        self.write_bytes_sec = (tmp_write_bytes - self.write_bytes) / (seconds - self.updatedAt)
-        self.read_iops_sec = (tmp_read_iops - self.read_iops) / (seconds - self.updatedAt)
-        self.write_iops_sec = (tmp_write_iops - self.write_iops) / (seconds - self.updatedAt)
+        self.read_bytes_sec = int((tmp_read_bytes - self.read_bytes) / (seconds - self.updatedAt))
+        self.write_bytes_sec = int((tmp_write_bytes - self.write_bytes) / (seconds - self.updatedAt))
+        self.read_iops_sec = int((tmp_read_iops - self.read_iops) / (seconds - self.updatedAt))
+        self.write_iops_sec = int((tmp_write_iops - self.write_iops) / (seconds - self.updatedAt))
 
         self.read_bytes = tmp_read_bytes
         self.write_bytes = tmp_write_bytes
@@ -142,6 +146,7 @@ class VirtualMachine:
     def getStatsTable(self):
         return [
             self.id,
+            self.name,
             self.colorizeBytes(self.read_bytes_sec, 20*1024*1024*1024),
             self.colorizeBytes(self.write_bytes_sec, 20*1024*1024*1024),
             self.colorizeIOPS(self.read_iops_sec, 35),
